@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, Book, FileText, History, Loader2 } from 'lucide-react';
+import { ArrowLeft, Book, FileText, History, Loader2, Library } from 'lucide-react'; // Added Library icon
 
 // Resource Components
 import SyllabusManager from '../components/resources/SyllabusManager';
 import NotesManager from '../components/resources/NotesManager';
 import PYQManager from '../components/resources/PYQManager';
+import ResourceManager from '../components/resources/ResourceManager'; // IMPORTED HERE
 
 const PaperDetail = () => {
   const { id } = useParams();
@@ -45,9 +46,7 @@ const PaperDetail = () => {
               <span className="text-sm font-bold text-slate-900">{paper.name}</span>
             </div>
             
-            {/* Added Paper ID right here */}
             <MetaItem label="Paper ID" value={`#${paper.id}`} color="text-slate-800 font-mono" />
-            
             <MetaItem label="Code" value={paper.code} color="text-indigo-600" />
             <MetaItem label="Semester" value={`SEM ${paper.semester}`} />
             <MetaItem label="Type" value={paper.type} />
@@ -62,6 +61,7 @@ const PaperDetail = () => {
           {activeTab === 'syllabus' && <SyllabusManager paper={paper} />}
           {activeTab === 'notes' && <NotesManager paper={paper} />}
           {activeTab === 'pyqs' && <PYQManager paper={paper} />}
+          {activeTab === 'resources' && <ResourceManager paper={paper} />} {/* NEW RENDERER */}
         </div>
       </main>
 
@@ -70,6 +70,7 @@ const PaperDetail = () => {
         <TabBtn active={activeTab === 'syllabus'} onClick={() => setActiveTab('syllabus')} icon={<Book size={18} />} label="Syllabus" />
         <TabBtn active={activeTab === 'notes'} onClick={() => setActiveTab('notes')} icon={<FileText size={18} />} label="Notes" />
         <TabBtn active={activeTab === 'pyqs'} onClick={() => setActiveTab('pyqs')} icon={<History size={18} />} label="PYQs" />
+        <TabBtn active={activeTab === 'resources'} onClick={() => setActiveTab('resources')} icon={<Library size={18} />} label="References" /> {/* NEW TAB */}
       </nav>
     </div>
   );

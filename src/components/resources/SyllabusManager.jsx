@@ -66,14 +66,26 @@ const SyllabusManager = ({ paper }) => {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // --- 1. STORAGE LOGIC ---
-  const handleFileSelect = (e) => {
+    const handleFileSelect = (e) => {
     const file = e.target.files[0];
-    if (file && file.type === "application/pdf") {
+    if (!file) return;
+
+    const isPdfType = file.type === "application/pdf";
+    const isPdfExtension = file.name.toLowerCase().endsWith(".pdf");
+    
+    // Google Drive on mobile often hides BOTH the type and the extension.
+    // If the type is completely empty, we let it pass the frontend check.
+    const isMobileDriveGhost = !file.type || file.type === "";
+
+    if (isPdfType || isPdfExtension || isMobileDriveGhost) {
       setPendingFile(file);
     } else {
-      alert("Please select a valid PDF file.");
+      alert(`Please select a valid PDF file. (Got Name: ${file.name}, Type: ${file.type || "Unknown"})`);
+      // Clear the input so they can try again
+      e.target.value = null; 
     }
   };
+
 
   const handleStorageUpload = async () => {
     if (!pendingFile) return;
@@ -85,15 +97,29 @@ const SyllabusManager = ({ paper }) => {
 
     try {
       setUploading(true);
-      // Upsert: true automatically deletes the old file and saves the new one seamlessly
+
+      // --- NEW ANTI-GHOST FILE MAGIC ---
+      // Force the browser to read the file into memory first.
+      // This forces Google Drive files to resolve before Supabase touches them.
+      let fileData;
+      try {
+        fileData = await pendingFile.arrayBuffer();
+      } catch (readError) {
+        throw new Error("Cannot read cloud file directly. Please download the file to your device storage first and try again.");
+      }
+
+      // Upload the raw fileData instead of the pendingFile object
       const { error: storageError } = await supabase.storage
         .from('syllabus')
-        .upload(filePath, pendingFile, { upsert: true, contentType: 'application/pdf' });
+        .upload(filePath, fileData, { 
+          upsert: true, 
+          contentType: 'application/pdf' 
+        });
 
       if (storageError) throw storageError;
 
       setPendingFile(null);
-      await fetchData(); // Refresh UI State
+      await fetchData(); 
       alert("✅ STORAGE SUCCESS: File securely saved to bucket.");
     } catch (err) {
       alert("❌ STORAGE ERROR: " + err.message);
@@ -101,6 +127,7 @@ const SyllabusManager = ({ paper }) => {
       setUploading(false);
     }
   };
+
 
   const handleStorageDelete = async () => {
     if (!window.confirm("Are you sure you want to permanently delete this PDF from the storage bucket?")) return;
