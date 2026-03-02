@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { 
-  Upload, Database, Loader2, Save, Cloud, CheckCircle, ExternalLink
+  Upload, Database, Loader2, Save, Cloud, CheckCircle, ExternalLink, Trash2, FileCheck2
 } from 'lucide-react';
 
 const SyllabusManager = ({ paper }) => {
@@ -9,40 +9,61 @@ const SyllabusManager = ({ paper }) => {
   
   // Storage States
   const [uploading, setUploading] = useState(false);
+  const [deletingStorage, setDeletingStorage] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
+  const [storageFileExists, setStorageFileExists] = useState(false);
 
   // Database States
   const [savingDb, setSavingDb] = useState(false);
-  const [dbData, setDbData] = useState({
-    is_active: true
-  });
+  const [deletingDb, setDeletingDb] = useState(false);
+  const [dbData, setDbData] = useState({ is_active: true });
   const [currentRecord, setCurrentRecord] = useState(null);
 
-  // --- PRE-CALCULATE DETERMINISTIC URL ---
-  const filePath = `syllabus/${paper.id}.pdf`;
+  // --- PATHS AND URLS ---
+  const folderName = 'syllabus';
+  const fileName = `${paper.id}.pdf`;
+  const filePath = `${folderName}/${fileName}`;
   const { data: { publicUrl: expectedUrl } } = supabase.storage
     .from('syllabus')
     .getPublicUrl(filePath);
 
-  // Fetch Database Record
-  const fetchSyllabus = useCallback(async () => {
+  // --- FETCH DATA ON LOAD ---
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
+
+    // 1. Check Database Table
+    const { data: dbRecord, error: dbError } = await supabase
       .from('paper_syllabus')
       .select('*')
       .eq('paper_id', paper.id)
       .single();
 
-    if (!error && data) {
-      setCurrentRecord(data);
-      setDbData({ is_active: data.is_active });
+    if (!dbError && dbRecord) {
+      setCurrentRecord(dbRecord);
+      setDbData({ is_active: dbRecord.is_active });
     } else {
       setCurrentRecord(null);
     }
-    setLoading(false);
-  }, [paper.id]);
 
-  useEffect(() => { fetchSyllabus(); }, [fetchSyllabus]);
+    // 2. Check Storage Bucket physically
+    const { data: storageFiles } = await supabase.storage
+      .from('syllabus')
+      .list(folderName, {
+        limit: 1,
+        search: fileName
+      });
+
+    // If the file array has items and matches our name exactly, it exists!
+    if (storageFiles && storageFiles.length > 0 && storageFiles[0].name === fileName) {
+      setStorageFileExists(true);
+    } else {
+      setStorageFileExists(false);
+    }
+
+    setLoading(false);
+  }, [paper.id, fileName]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   // --- 1. STORAGE LOGIC ---
   const handleFileSelect = (e) => {
@@ -56,9 +77,15 @@ const SyllabusManager = ({ paper }) => {
 
   const handleStorageUpload = async () => {
     if (!pendingFile) return;
+    
+    // Explicit confirmation if they are replacing
+    if (storageFileExists) {
+        if (!window.confirm("This will permanently overwrite the existing PDF in the bucket. Continue?")) return;
+    }
+
     try {
       setUploading(true);
-
+      // Upsert: true automatically deletes the old file and saves the new one seamlessly
       const { error: storageError } = await supabase.storage
         .from('syllabus')
         .upload(filePath, pendingFile, { upsert: true, contentType: 'application/pdf' });
@@ -66,11 +93,31 @@ const SyllabusManager = ({ paper }) => {
       if (storageError) throw storageError;
 
       setPendingFile(null);
-      alert("✅ STORAGE SUCCESS: File securely uploaded to bucket.");
+      await fetchData(); // Refresh UI State
+      alert("✅ STORAGE SUCCESS: File securely saved to bucket.");
     } catch (err) {
       alert("❌ STORAGE ERROR: " + err.message);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleStorageDelete = async () => {
+    if (!window.confirm("Are you sure you want to permanently delete this PDF from the storage bucket?")) return;
+    try {
+      setDeletingStorage(true);
+      
+      const { data, error } = await supabase.storage.from('syllabus').remove([filePath]);
+      
+      if (error) throw error;
+      if (!data || data.length === 0) throw new Error("Delete blocked. Check your Storage bucket's DELETE policy.");
+      
+      await fetchData(); // Refresh UI instantly
+      alert("✅ STORAGE SUCCESS: File permanently deleted from bucket.");
+    } catch (err) {
+      alert("❌ STORAGE ERROR: " + err.message);
+    } finally {
+      setDeletingStorage(false);
     }
   };
 
@@ -83,18 +130,42 @@ const SyllabusManager = ({ paper }) => {
         .from('paper_syllabus')
         .upsert({
           paper_id: paper.id,
-          pdf_url: expectedUrl, // Using the automatically calculated URL
+          pdf_url: expectedUrl, 
           is_active: dbData.is_active
         }, { onConflict: 'paper_id' });
 
       if (dbError) throw dbError;
 
-      fetchSyllabus();
+      await fetchData(); 
       alert("✅ DATABASE SUCCESS: Record saved to paper_syllabus table.");
     } catch (err) {
       alert("❌ DATABASE ERROR: " + err.message);
     } finally {
       setSavingDb(false);
+    }
+  };
+
+  const handleDatabaseDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this record from the database table?")) return;
+    try {
+      setDeletingDb(true);
+      
+      const { data, error } = await supabase
+        .from('paper_syllabus')
+        .delete()
+        .eq('paper_id', paper.id)
+        .select(); // .select() forces it to return deleted rows to prove it worked
+
+      if (error) throw error;
+      if (!data || data.length === 0) throw new Error("Delete blocked. Check your Database table's DELETE policy.");
+      
+      setDbData({ is_active: true });
+      await fetchData(); 
+      alert("✅ DATABASE SUCCESS: Record removed from table.");
+    } catch (err) {
+      alert("❌ DATABASE ERROR: " + err.message);
+    } finally {
+      setDeletingDb(false);
     }
   };
 
@@ -111,6 +182,20 @@ const SyllabusManager = ({ paper }) => {
         </div>
         
         <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 text-center shadow-sm">
+          
+          {/* EXISTENCE UI COMPONENT */}
+          {storageFileExists ? (
+            <div className="mb-6 bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex flex-col items-center gap-2">
+              <FileCheck2 size={24} className="text-emerald-600" />
+              <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">File exists in bucket</p>
+              <p className="text-[10px] text-emerald-600 font-mono bg-white px-2 py-1 rounded-md border border-emerald-100">{fileName}</p>
+            </div>
+          ) : (
+             <div className="mb-6 p-4 bg-slate-100 border border-slate-200 border-dashed rounded-2xl text-xs font-bold text-slate-400">
+              No existing PDF found in storage.
+            </div>
+          )}
+
           <input 
             type="file" 
             accept=".pdf" 
@@ -123,8 +208,19 @@ const SyllabusManager = ({ paper }) => {
             disabled={!pendingFile || uploading}
             className="w-full bg-indigo-600 text-white py-3 rounded-2xl font-black text-xs uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 shadow-lg hover:bg-indigo-700 transition-all active:scale-95"
           >
-            {uploading ? <Loader2 className="animate-spin" /> : <><Upload size={16} /> Upload to Bucket</>}
+            {uploading ? <Loader2 className="animate-spin" /> : <><Upload size={16} /> {storageFileExists ? 'Replace in Bucket' : 'Upload to Bucket'}</>}
           </button>
+
+          {/* STORAGE DELETE BUTTON */}
+          {storageFileExists && (
+            <button 
+              onClick={handleStorageDelete}
+              disabled={deletingStorage}
+              className="w-full mt-3 bg-white border border-red-200 text-red-600 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex justify-center items-center gap-2 shadow-sm hover:bg-red-50 transition-all active:scale-95"
+            >
+              {deletingStorage ? <Loader2 className="animate-spin" /> : <><Trash2 size={16} /> Delete from Bucket</>}
+            </button>
+          )}
         </div>
       </div>
 
@@ -169,11 +265,22 @@ const SyllabusManager = ({ paper }) => {
             disabled={savingDb}
             className="w-full bg-slate-900 text-white py-3 rounded-2xl font-black text-xs uppercase tracking-widest disabled:opacity-50 flex justify-center items-center gap-2 shadow-lg hover:bg-slate-800 transition-all active:scale-95"
           >
-            {savingDb ? <Loader2 className="animate-spin" /> : <><Save size={16} /> Save Database Record</>}
+            {savingDb ? <Loader2 className="animate-spin" /> : <><Save size={16} /> {currentRecord ? 'Update Record' : 'Save Record'}</>}
           </button>
+
+          {/* DATABASE DELETE BUTTON */}
+          {currentRecord && (
+            <button 
+              type="button"
+              onClick={handleDatabaseDelete}
+              disabled={deletingDb}
+              className="w-full bg-white border border-red-200 text-red-600 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex justify-center items-center gap-2 shadow-sm hover:bg-red-50 transition-all active:scale-95"
+            >
+              {deletingDb ? <Loader2 className="animate-spin" /> : <><Trash2 size={16} /> Delete DB Record</>}
+            </button>
+          )}
         </form>
 
-        {/* Existing Record Indicator */}
         {currentRecord && (
           <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 text-blue-700 rounded-2xl border border-blue-100 text-xs font-bold shadow-sm">
             <CheckCircle size={16} />
@@ -184,7 +291,6 @@ const SyllabusManager = ({ paper }) => {
           </div>
         )}
       </div>
-
     </div>
   );
 };
