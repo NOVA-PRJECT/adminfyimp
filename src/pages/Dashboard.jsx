@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // Crucial for the View button
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { 
   Search, Plus, LogOut, LayoutDashboard, 
-  BookOpen, Building2, Globe, Edit3, Trash2, Eye, Loader2 
-} from 'lucide-react';
+  BookOpen, Building2, Globe, Edit3, Trash2, Eye, Loader2, FileText 
+} from 'lucide-react'; // <-- Added FileText here
 
 // Component Imports
 import AddPaperModal from '../components/AddPaperModal';
@@ -59,6 +59,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+      
       {/* 1. TOP NAVIGATION BAR */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 px-6 h-16 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
@@ -72,9 +73,22 @@ const Dashboard = () => {
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden md:block">
             Admin Console
           </span>
+
+          {/* --- ADDED SOP BUTTON HERE --- */}
+          <button 
+            onClick={() => navigate('/sop')} 
+            className="flex items-center gap-2 text-slate-500 p-2 hover:bg-slate-100 hover:text-indigo-600 rounded-xl transition-all"
+            title="View Architecture SOP"
+          >
+            <FileText size={20} />
+            <span className="text-xs font-bold uppercase tracking-widest hidden sm:block">SOP</span>
+          </button>
+          {/* ----------------------------- */}
+
           <button 
             onClick={() => supabase.auth.signOut()} 
             className="text-red-500 p-2 hover:bg-red-50 rounded-xl transition-all"
+            title="Sign Out"
           >
             <LogOut size={20} />
           </button>
