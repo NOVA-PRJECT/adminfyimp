@@ -7,7 +7,9 @@ import SOP from './pages/SOP';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import PaperDetail from './pages/PaperDetail';
-
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import SystemAudit from './pages/SystemAudit';
 
 function App() {
   return (
@@ -17,6 +19,8 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/gateway" element={<Clearance />} /> {/* Step 2 */}
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+<Route path="/reset-password" element={<ResetPassword />} /> 
 
 
         {/* Protected Routes - Only accessible if logged in */}
@@ -24,6 +28,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/sop" element={<SOP/>}/>
           <Route path="/paper/:id" element={<PaperDetail />} />
+          <Route path="/audit" element={<SystemAudit />} />
         </Route>
       </Routes>
     </AuthProvider>
