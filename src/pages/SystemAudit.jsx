@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, Loader2, FileX, BookX, FileText } from 'lucide-react';
+import { ArrowLeft, Loader2, FileX, BookX, FileText, Filter } from 'lucide-react'; // <-- Added Filter icon
 
 // Import our clean, modular child components
 import SyllabusAudit from '../components/audit/SyllabusAudit';
@@ -15,6 +15,13 @@ const SystemAudit = () => {
   const [papers, setPapers] = useState([]);
   const [counts, setCounts] = useState({ syllabus: '-', notes: '-', pyqs: '-' });
 
+  // --- NEW: Semester Filter State (Persistent) ---
+  const [selectedSemester, setSelectedSemester] = useState(() => localStorage.getItem('fyimp_audit_sem') || 'All');
+
+  useEffect(() => {
+    localStorage.setItem('fyimp_audit_sem', selectedSemester);
+  }, [selectedSemester]);
+
   // Fetch Master Papers ONLY ONE TIME on mount
   useEffect(() => {
     const fetchMasterPapers = async () => {
@@ -26,27 +33,37 @@ const SystemAudit = () => {
     fetchMasterPapers();
   }, []);
 
-  // --- PERFORMANCE OPTIMIZATION STARTS HERE ---
-  
-  // 1. useCallback "freezes" these functions so they never change reference on tab switch
+  // --- FILTER LOGIC ---
+  // 1. Extract unique semesters for the dropdown
+  const uniqueSemesters = useMemo(() => {
+    return [...new Set(papers.map(p => p.semester).filter(Boolean))].sort((a, b) => a - b);
+  }, [papers]);
+
+  // 2. Filter the papers based on the dropdown. 
+  // We use useMemo here to prevent React from re-creating the array on random renders, which protects us from infinite loops!
+  const filteredPapers = useMemo(() => {
+    if (selectedSemester === 'All') return papers;
+    return papers.filter(p => p.semester.toString() === selectedSemester);
+  }, [papers, selectedSemester]);
+
+
+  // --- PERFORMANCE OPTIMIZATION ---
   const handleSyllabusCount = useCallback((c) => setCounts(prev => ({ ...prev, syllabus: c })), []);
   const handleNotesCount = useCallback((c) => setCounts(prev => ({ ...prev, notes: c })), []);
   const handlePyqsCount = useCallback((c) => setCounts(prev => ({ ...prev, pyqs: c })), []);
 
-  // 2. useMemo "freezes" the heavy components. They will ONLY re-render if the 'papers' array changes.
+  // Notice we are passing `filteredPapers` to the children now, not `papers`!
   const memoizedSyllabus = useMemo(() => (
-    <SyllabusAudit papers={papers} onUpdateCount={handleSyllabusCount} />
-  ), [papers, handleSyllabusCount]);
+    <SyllabusAudit papers={filteredPapers} onUpdateCount={handleSyllabusCount} />
+  ), [filteredPapers, handleSyllabusCount]);
 
   const memoizedNotes = useMemo(() => (
-    <NotesAudit papers={papers} onUpdateCount={handleNotesCount} />
-  ), [papers, handleNotesCount]);
+    <NotesAudit papers={filteredPapers} onUpdateCount={handleNotesCount} />
+  ), [filteredPapers, handleNotesCount]);
 
   const memoizedPyqs = useMemo(() => (
-    <PyqAudit papers={papers} onUpdateCount={handlePyqsCount} />
-  ), [papers, handlePyqsCount]);
-
-  // --- PERFORMANCE OPTIMIZATION ENDS HERE ---
+    <PyqAudit papers={filteredPapers} onUpdateCount={handlePyqsCount} />
+  ), [filteredPapers, handlePyqsCount]);
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-20">
@@ -71,10 +88,29 @@ const SystemAudit = () => {
           </div>
           <div className="text-right">
             <div className="text-3xl font-black text-amber-400">
-              {loadingPapers ? <Loader2 className="animate-spin inline" size={24}/> : papers.length}
+              {loadingPapers ? <Loader2 className="animate-spin inline" size={24}/> : filteredPapers.length}
             </div>
-            <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Total Papers</div>
+            <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+              {selectedSemester === 'All' ? 'Total Papers' : `Sem ${selectedSemester} Papers`}
+            </div>
           </div>
+        </div>
+
+        {/* --- NEW: SEMESTER FILTER BAR --- */}
+        <div className="flex items-center gap-3 bg-white p-2 border border-slate-200 rounded-2xl shadow-sm">
+          <div className="bg-slate-100 p-2 rounded-xl text-slate-500">
+            <Filter size={18} />
+          </div>
+          <select 
+            value={selectedSemester}
+            onChange={(e) => setSelectedSemester(e.target.value)}
+            className="w-full bg-transparent outline-none font-bold text-sm text-slate-700 cursor-pointer pr-4"
+          >
+            <option value="All">All Semesters</option>
+            {uniqueSemesters.map(sem => (
+              <option key={sem} value={sem}>Semester {sem}</option>
+            ))}
+          </select>
         </div>
 
         {/* DYNAMIC FLEX TABS */}
@@ -108,7 +144,6 @@ const SystemAudit = () => {
              </div>
           ) : (
             <>
-              {/* Now we just render the frozen components. Tab switching will be instantaneous! */}
               <div className={activeTab === 'syllabus' ? 'block' : 'hidden'}>
                 {memoizedSyllabus}
               </div>

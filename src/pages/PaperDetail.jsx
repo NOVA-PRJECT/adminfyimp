@@ -33,7 +33,7 @@ const PaperDetail = () => {
       {/* 1. COMPACT METADATA STRIP */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm overflow-hidden">
         <div className="flex items-center px-4 h-14 gap-4">
-          <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-indigo-600 transition-colors">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-indigo-600 transition-colors">
             <ArrowLeft size={20} />
           </button>
           
