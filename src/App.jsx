@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider } from './lib/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute'; 
 import Home from './pages/Home';
@@ -31,6 +32,7 @@ function App() {
           <Route path="/audit" element={<SystemAudit />} />
         </Route>
       </Routes>
+      <SpeedInsights />
     </AuthProvider>
   );
 }
