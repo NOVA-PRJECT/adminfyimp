@@ -76,6 +76,7 @@ const AddPaperModal = ({ isOpen, onClose, onRefresh }) => {
                 <option value="MDC">MDC</option>
                 <option value="VAC">VAC</option>
                 <option value="SEC">SEC</option>
+                <option value="AEC">AEC</option>
               </select>
             </div>
             <div className="space-y-1">
