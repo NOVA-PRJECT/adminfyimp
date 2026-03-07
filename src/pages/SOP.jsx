@@ -70,7 +70,7 @@ const SOP = () => {
             {/* References Table */}
             <TableCard 
               title="paper_references" 
-              constraint="No unique composite key (Unlimited items)"
+              constraint="No composite key (Unlimited items)"
             >
               <tr><td className="px-4 py-3 font-mono font-bold">reference_type</td><td className="px-4 py-3 text-rose-600 font-mono">ENUM</td><td className="px-4 py-3 leading-relaxed">Values: <EnumBadge val="book_pdf" />, <EnumBadge val="youtube_video" />, <EnumBadge val="website" />, <EnumBadge val="youtube_playlist" />, <EnumBadge val="blog" /></td></tr>
               <tr><td className="px-4 py-3 font-mono font-bold">priority</td><td className="px-4 py-3 text-slate-500">integer</td><td className="px-4 py-3 text-indigo-600 font-semibold">Automated: book=1, yt_video=2, website=3, yt_playlist=4, blog=5</td></tr>
@@ -113,6 +113,17 @@ const SOP = () => {
           <SectionHeader icon={<Settings size={20} />} title="3. Engine Rules & Edge Cases" />
           <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
             
+            {/* NEW PRIORITY RULE BLOCK */}
+            <RuleBlock icon={<BookOpen className="text-emerald-500" />} title="Notes Priority Hierarchy (1-4)">
+              The system strictly enforces a 4-tier hierarchy for module notes to establish a "Trust Level" for the students.
+              <ul className="mt-3 space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <li><span className="font-mono font-bold text-emerald-600">1:</span> <span className="text-slate-700 font-medium">Official Faculty Notes</span> (Highest Trust)</li>
+                <li><span className="font-mono font-bold text-emerald-600">2:</span> <span className="text-slate-700 font-medium">Topper's Handwritten Notes</span></li>
+                <li><span className="font-mono font-bold text-emerald-600">3:</span> <span className="text-slate-700 font-medium">Exam Prep / Short Revision</span></li>
+                <li><span className="font-mono font-bold text-emerald-600">4:</span> <span className="text-slate-700 font-medium">AI-Generated Notes</span> (Fallback)</li>
+              </ul>
+            </RuleBlock>
+
             <RuleBlock icon={<Zap className="text-amber-500" />} title="Cache-Busting (Real-time updates)">
               Because the system overwrites files with the exact same name (e.g., <code className="bg-slate-100 px-1 py-0.5 rounded border border-slate-200 text-xs">5.pdf</code>), browsers will serve stale cached versions. The UI appends a <code className="bg-slate-100 px-1 py-0.5 rounded border border-slate-200 text-xs">?t=timestamp</code> to the URL on save to force fetching the newest version.
             </RuleBlock>
