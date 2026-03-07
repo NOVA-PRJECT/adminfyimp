@@ -252,7 +252,7 @@ const PYQManager = ({ paper }) => {
           <div className="flex items-center gap-2 bg-rose-50 px-3 py-2 rounded-2xl border border-rose-100 flex-grow sm:flex-grow-0">
             <FileQuestion size={16} className="text-rose-600" />
             <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="bg-transparent font-black text-rose-900 text-sm outline-none cursor-pointer w-full">
-              <option value="Semester">Semester</option>
+              <option value="semester">Semester</option>
               <option value="model">Model</option>
               <option value="supplementary">Supplementary</option>
               <option value="reexam">Re-exam</option>
