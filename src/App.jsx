@@ -20,7 +20,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/gateway" element={<Clearance />} /> {/* Step 2 */}
         <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/resetpassword" element={<ForgotPassword />} />
 <Route path="/reset-password" element={<ResetPassword />} /> 
 
 
