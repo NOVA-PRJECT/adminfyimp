@@ -125,7 +125,7 @@ const Login = () => {
               {/* Inside your Login.jsx form, under the password input: */}
 <div className="flex justify-end mt-2">
   <Link 
-    to="/forgot-password" 
+    to="/resetpassword" 
     className="text-[10px] font-bold text-slate-500 hover:text-indigo-400 uppercase tracking-widest transition-colors"
   >
     Forgot Password?
