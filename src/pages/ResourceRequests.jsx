@@ -38,8 +38,12 @@ const ResourceRequests = () => {
     if (!error && data) setRequests(data);
     setLoading(false);
   }, []);
-
-  useEffect(() => { fetchRequests(); }, [fetchRequests]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchRequests();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchRequests]);
 
   const counts = useMemo(() => ({
     pending: requests.filter(r => r.status === 'pending').length,

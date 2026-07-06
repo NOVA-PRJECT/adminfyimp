@@ -9,34 +9,50 @@ const NotesAudit = ({ papers, onUpdateCount }) => {
   const [missing, setMissing] = useState([]);
 
   useEffect(() => {
-    const runAudit = async () => {
-      setLoading(true);
-      const { data } = await supabase.from('paper_notes').select('paper_id, module_number');
-      
-      const missingDetails = [];
-      papers.forEach(paper => {
-        const pNotes = data?.filter(n => String(n.paper_id) === String(paper.id)) || [];
-        const missingSlots = [];
-        
-        if (!pNotes.some(n => Number(n.module_number) === 1)) missingSlots.push('Mod 1');
-        if (!pNotes.some(n => Number(n.module_number) === 2)) missingSlots.push('Mod 2');
-        if (!pNotes.some(n => Number(n.module_number) === 3)) missingSlots.push('Mod 3');
-        if (!pNotes.some(n => Number(n.module_number) === 4)) missingSlots.push('Mod 4');
-
-        if (missingSlots.length > 0) missingDetails.push({ ...paper, missingSlots });
-      });
-      
-      setMissing(missingDetails);
-      if (onUpdateCount) onUpdateCount(missingDetails.length);
-      setLoading(false);
-    };
+    let active = true;
 
     if (papers && papers.length > 0) {
+      const runAudit = async () => {
+        setLoading(true);
+        const { data } = await supabase.from('paper_notes').select('paper_id, module_number');
+        if (!active) return;
+        
+        const missingDetails = [];
+        papers.forEach(paper => {
+          const pNotes = data?.filter(n => String(n.paper_id) === String(paper.id)) || [];
+          const missingSlots = [];
+          
+          if (!pNotes.some(n => Number(n.module_number) === 1)) missingSlots.push('Mod 1');
+          if (!pNotes.some(n => Number(n.module_number) === 2)) missingSlots.push('Mod 2');
+          if (!pNotes.some(n => Number(n.module_number) === 3)) missingSlots.push('Mod 3');
+          if (!pNotes.some(n => Number(n.module_number) === 4)) missingSlots.push('Mod 4');
+
+          if (missingSlots.length > 0) missingDetails.push({ ...paper, missingSlots });
+        });
+        
+        setMissing(missingDetails);
+        if (onUpdateCount) onUpdateCount(missingDetails.length);
+        setLoading(false);
+      };
+
       runAudit();
     } else {
-      setLoading(false);
+      const timer = setTimeout(() => {
+        if (!active) return;
+        setMissing([]);
+        if (onUpdateCount) onUpdateCount(0);
+        setLoading(false);
+      }, 0);
+      return () => {
+        active = false;
+        clearTimeout(timer);
+      };
     }
-  }, [papers]);
+
+    return () => {
+      active = false;
+    };
+  }, [papers, onUpdateCount]);
 
   if (loading) {
     return (

@@ -1,8 +1,7 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ShieldAlert, AlertTriangle, Activity, ArrowRight, XOctagon } from 'lucide-react';
 
 const Home = () => {
-  const navigate = useNavigate();
 
   const handleExit = () => {
     // External redirect

@@ -107,7 +107,7 @@ const NotesManager = ({ paper }) => {
       let fileData;
       try {
         fileData = await pendingFile.arrayBuffer();
-      } catch (readError) {
+      } catch {
         throw new Error("Cannot read cloud file directly. Please download the file to your device storage first and try again.");
       }
 

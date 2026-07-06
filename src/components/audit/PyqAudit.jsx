@@ -9,32 +9,48 @@ const PyqAudit = ({ papers, onUpdateCount }) => {
   const [missing, setMissing] = useState([]);
 
   useEffect(() => {
-    const runAudit = async () => {
-      setLoading(true);
-      const { data } = await supabase.from('paper_pyqs').select('paper_id, exam_category');
-      
-      const missingDetails = [];
-      papers.forEach(paper => {
-        const pPyqs = data?.filter(p => String(p.paper_id) === String(paper.id)) || [];
-        const missingSlots = [];
-        
-        if (!pPyqs.some(p => p.exam_category?.toLowerCase() === 'semester')) missingSlots.push('Semester');
-        if (!pPyqs.some(p => p.exam_category?.toLowerCase() === 'internal')) missingSlots.push('Internal');
-
-        if (missingSlots.length > 0) missingDetails.push({ ...paper, missingSlots });
-      });
-      
-      setMissing(missingDetails);
-      if (onUpdateCount) onUpdateCount(missingDetails.length);
-      setLoading(false);
-    };
+    let active = true;
 
     if (papers && papers.length > 0) {
+      const runAudit = async () => {
+        setLoading(true);
+        const { data } = await supabase.from('paper_pyqs').select('paper_id, exam_category');
+        if (!active) return;
+        
+        const missingDetails = [];
+        papers.forEach(paper => {
+          const pPyqs = data?.filter(p => String(p.paper_id) === String(paper.id)) || [];
+          const missingSlots = [];
+          
+          if (!pPyqs.some(p => p.exam_category?.toLowerCase() === 'semester')) missingSlots.push('Semester');
+          if (!pPyqs.some(p => p.exam_category?.toLowerCase() === 'internal')) missingSlots.push('Internal');
+
+          if (missingSlots.length > 0) missingDetails.push({ ...paper, missingSlots });
+        });
+        
+        setMissing(missingDetails);
+        if (onUpdateCount) onUpdateCount(missingDetails.length);
+        setLoading(false);
+      };
+
       runAudit();
     } else {
-      setLoading(false);
+      const timer = setTimeout(() => {
+        if (!active) return;
+        setMissing([]);
+        if (onUpdateCount) onUpdateCount(0);
+        setLoading(false);
+      }, 0);
+      return () => {
+        active = false;
+        clearTimeout(timer);
+      };
     }
-  }, [papers]);
+
+    return () => {
+      active = false;
+    };
+  }, [papers, onUpdateCount]);
 
   if (loading) {
     return (

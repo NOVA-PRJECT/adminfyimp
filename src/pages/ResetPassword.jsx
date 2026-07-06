@@ -13,7 +13,7 @@ const ResetPassword = () => {
   useEffect(() => {
     // Supabase will automatically read the URL hash (#access_token=...) and log them in
     // We just listen for that successful "PASSWORD_RECOVERY" event to clear any errors
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         console.log('Recovery session established.');
       }

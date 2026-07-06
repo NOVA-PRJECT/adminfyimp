@@ -5,6 +5,7 @@ import {
   Search, Plus, LogOut, LayoutDashboard, 
   BookOpen, Building2, Globe, Edit3, Trash2, Eye, Loader2, FileText, Filter, Activity
 } from 'lucide-react'; 
+import { Inbox } from 'lucide-react'; // add to the existing lucide-react import
 
 // Component Imports
 import AddPaperModal from '../components/AddPaperModal';
@@ -86,6 +87,15 @@ const Dashboard = () => {
             <Activity size={20} />
             <span className="text-xs font-bold uppercase tracking-widest hidden sm:block">Audit</span>
           </button>
+
+          <button 
+  onClick={() => navigate('/requests')} 
+  className="flex items-center gap-2 text-slate-500 p-2 hover:bg-slate-100 hover:text-indigo-600 rounded-xl transition-all"
+  title="Resource Requests"
+>
+  <Inbox size={20} />
+  <span className="text-xs font-bold uppercase tracking-widest hidden sm:block">Requests</span>
+</button>
 
           <button 
             onClick={() => navigate('/sop')} 
@@ -233,7 +243,7 @@ const Dashboard = () => {
 
       {/* MODAL OVERLAYS */}
       <AddPaperModal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} onRefresh={fetchData} />
-      {editingPaper && <EditPaperModal paper={editingPaper} isOpen={!!editingPaper} onClose={() => setEditingPaper(null)} onRefresh={fetchData} />}
+      {editingPaper && <EditPaperModal key={editingPaper.id} paper={editingPaper} isOpen={!!editingPaper} onClose={() => setEditingPaper(null)} onRefresh={fetchData} />}
       <DeleteConfirmModal 
         isOpen={!!deletingPaper} 
         paperName={deletingPaper?.name} 

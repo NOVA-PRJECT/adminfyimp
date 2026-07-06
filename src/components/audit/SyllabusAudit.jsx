@@ -10,36 +10,52 @@ const SyllabusAudit = ({ papers, onUpdateCount }) => {
   const [dbError, setDbError] = useState(null);
 
   useEffect(() => {
-    const runAudit = async () => {
-      setLoading(true);
-      setDbError(null);
-      
-      try {
-        const { data, error } = await supabase.from('paper_syllabus').select('paper_id');
-        
-        if (error) throw error;
-        
-        const existingIds = new Set(data?.map(s => String(s.paper_id)) || []);
-        const missingList = papers.filter(p => !existingIds.has(String(p.id)));
-        
-        setMissing(missingList);
-        if (onUpdateCount) onUpdateCount(missingList.length);
-        
-      } catch (err) {
-        console.error("Syllabus Audit Error:", err);
-        setDbError(err.message);
-        if (onUpdateCount) onUpdateCount('Err');
-      } finally {
-        setLoading(false); 
-      }
-    };
+    let active = true;
 
     if (papers && papers.length > 0) {
+      const runAudit = async () => {
+        setLoading(true);
+        setDbError(null);
+        
+        try {
+          const { data, error } = await supabase.from('paper_syllabus').select('paper_id');
+          if (!active) return;
+          
+          if (error) throw error;
+          
+          const existingIds = new Set(data?.map(s => String(s.paper_id)) || []);
+          const missingList = papers.filter(p => !existingIds.has(String(p.id)));
+          
+          setMissing(missingList);
+          if (onUpdateCount) onUpdateCount(missingList.length);
+          
+        } catch (err) {
+          console.error("Syllabus Audit Error:", err);
+          if (active) setDbError(err.message);
+          if (onUpdateCount) onUpdateCount('Err');
+        } finally {
+          if (active) setLoading(false); 
+        }
+      };
+
       runAudit();
     } else {
-      setLoading(false);
+      const timer = setTimeout(() => {
+        if (!active) return;
+        setMissing([]);
+        if (onUpdateCount) onUpdateCount(0);
+        setLoading(false);
+      }, 0);
+      return () => {
+        active = false;
+        clearTimeout(timer);
+      };
     }
-  }, [papers]);
+
+    return () => {
+      active = false;
+    };
+  }, [papers, onUpdateCount]);
 
   if (loading) {
     return (

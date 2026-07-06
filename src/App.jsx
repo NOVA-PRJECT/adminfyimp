@@ -11,6 +11,7 @@ import PaperDetail from './pages/PaperDetail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import SystemAudit from './pages/SystemAudit';
+import ResourceRequests from './pages/ResourceRequests';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
           <Route path="/sop" element={<SOP/>}/>
           <Route path="/paper/:id" element={<PaperDetail />} />
           <Route path="/audit" element={<SystemAudit />} />
+          <Route path="/requests" element={<ResourceRequests />} />
         </Route>
       </Routes>
       <SpeedInsights />

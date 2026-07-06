@@ -1,15 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { X, Save, Loader2 } from 'lucide-react';
 
 const EditPaperModal = ({ paper, isOpen, onClose, onRefresh }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ ...paper });
-
-  useEffect(() => {
-    if (paper) setFormData({ ...paper });
-  }, [paper]);
-
   if (!isOpen) return null;
 
   const handleUpdate = async (e) => {
