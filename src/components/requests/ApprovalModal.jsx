@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, Save, Loader2, AlertOctagon, Layers, Star, Calendar, FileQuestion, Hash } from 'lucide-react';
+import { X, Save, Loader2, AlertOctagon, Layers, Star, Calendar, FileQuestion, Hash, FolderInput } from 'lucide-react';
+import { parseStoragePath, getNotesPath, getPyqPath, getSyllabusPath, migrateStorageFile } from '../../lib/storagePaths';
+
+const SOURCE_BUCKET = 'resource-uploads';
 
 const notesPriorityLabels = {
   1: 'Official Faculty Notes',
@@ -34,6 +37,7 @@ const ApprovalModal = ({ request, isOpen, onClose, onSuccess }) => {
   const [papers, setPapers] = useState([]);
   const [loadingPapers, setLoadingPapers] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [migrating, setMigrating] = useState(false);
   const [error, setError] = useState('');
 
   const [paperId, setPaperId] = useState(request.paper_id || '');
@@ -80,6 +84,30 @@ const ApprovalModal = ({ request, isOpen, onClose, onSuccess }) => {
     if (reqError) throw reqError;
   };
 
+  // If the current pdfUrl still points at the resource-uploads bucket, physically
+  // move the file into the correct live bucket/path. Returns { finalUrl, sourcePath }
+  // — sourcePath is non-null only when a migration actually happened, so the
+  // caller knows to delete it from resource-uploads once the DB write succeeds.
+  const resolveFinalPdfUrl = async (targetBucket, targetPath) => {
+    const sourcePath = parseStoragePath(pdfUrl, SOURCE_BUCKET);
+    if (!sourcePath) {
+      // Not a resource-uploads file (e.g. admin pasted an external link) — use as-is.
+      return { finalUrl: pdfUrl, sourcePath: null };
+    }
+    setMigrating(true);
+    try {
+      const finalUrl = await migrateStorageFile(supabase, {
+        sourceBucket: SOURCE_BUCKET,
+        sourcePath,
+        targetBucket,
+        targetPath,
+      });
+      return { finalUrl, sourcePath };
+    } finally {
+      setMigrating(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -91,22 +119,31 @@ const ApprovalModal = ({ request, isOpen, onClose, onSuccess }) => {
 
     try {
       setSubmitting(true);
+      let migratedSourcePath = null;
 
       if (resourceType === 'notes') {
         if (!pdfUrl) throw new Error('A PDF URL is required.');
+        const targetPath = getNotesPath(paperId, moduleNumber, notesPriority);
+        const { finalUrl, sourcePath } = await resolveFinalPdfUrl('notes', targetPath);
+        migratedSourcePath = sourcePath;
+
         const { error: dbError } = await supabase
           .from('paper_notes')
           .upsert({
             paper_id: paperId,
             module_number: moduleNumber,
             priority: notesPriority,
-            pdf_url: pdfUrl,
+            pdf_url: finalUrl,
             is_active: isActive,
           }, { onConflict: 'paper_id, module_number, priority' });
         if (dbError) throw dbError;
 
       } else if (resourceType === 'pyq') {
         if (!pdfUrl) throw new Error('A PDF URL is required.');
+        const targetPath = getPyqPath(paperId, examYear, examCategory, internalNumber);
+        const { finalUrl, sourcePath } = await resolveFinalPdfUrl('pyqs', targetPath);
+        migratedSourcePath = sourcePath;
+
         const { error: dbError } = await supabase
           .from('paper_pyqs')
           .upsert({
@@ -115,18 +152,22 @@ const ApprovalModal = ({ request, isOpen, onClose, onSuccess }) => {
             exam_category: examCategory,
             internal_number: examCategory === 'internal' ? internalNumber : null,
             priority: derivedPyqPriority,
-            pdf_url: pdfUrl,
+            pdf_url: finalUrl,
             is_active: isActive,
           }, { onConflict: 'paper_id, exam_year, exam_category, internal_number' });
         if (dbError) throw dbError;
 
       } else if (resourceType === 'syllabus') {
         if (!pdfUrl) throw new Error('A PDF URL is required.');
+        const targetPath = getSyllabusPath(paperId);
+        const { finalUrl, sourcePath } = await resolveFinalPdfUrl('syllabus', targetPath);
+        migratedSourcePath = sourcePath;
+
         const { error: dbError } = await supabase
           .from('paper_syllabus')
           .upsert({
             paper_id: paperId,
-            pdf_url: pdfUrl,
+            pdf_url: finalUrl,
             is_active: isActive,
           }, { onConflict: 'paper_id' });
         if (dbError) throw dbError;
@@ -150,6 +191,13 @@ const ApprovalModal = ({ request, isOpen, onClose, onSuccess }) => {
       // resourceType === 'other' -> no target table, just mark approved below
 
       await markRequestApproved();
+
+      // Only delete the original resource-uploads file after everything above
+      // has succeeded, so a failure never leaves us with zero copies of the file.
+      if (migratedSourcePath) {
+        await supabase.storage.from(SOURCE_BUCKET).remove([migratedSourcePath]);
+      }
+
       onSuccess();
     } catch (err) {
       setError(err.message);
@@ -271,6 +319,11 @@ const ApprovalModal = ({ request, isOpen, onClose, onSuccess }) => {
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">URL</label>
                 <input value={refUrl} onChange={(e) => setRefUrl(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-mono text-xs outline-none" />
+                {parseStoragePath(refUrl, SOURCE_BUCKET) && (
+                  <p className="text-[10px] text-amber-600 font-bold ml-1">
+                    Note: references have no dedicated storage bucket, so this file will stay in "resource-uploads" rather than being moved.
+                  </p>
+                )}
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Author / Channel</label>
@@ -297,6 +350,11 @@ const ApprovalModal = ({ request, isOpen, onClose, onSuccess }) => {
               {request.type === 'request' && (
                 <p className="text-[10px] text-amber-600 font-bold ml-1">This was a request (no file attached) — paste the URL of the PDF you sourced/uploaded to storage.</p>
               )}
+              {request.type === 'upload' && parseStoragePath(pdfUrl, SOURCE_BUCKET) && (
+                <p className="text-[10px] text-indigo-600 font-bold ml-1 flex items-center gap-1">
+                  <FolderInput size={12} /> This file will be moved out of "resource-uploads" into the live bucket on save.
+                </p>
+              )}
             </div>
           )}
 
@@ -315,7 +373,11 @@ const ApprovalModal = ({ request, isOpen, onClose, onSuccess }) => {
           )}
 
           <button type="submit" disabled={submitting} className="w-full bg-slate-900 hover:bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50">
-            {submitting ? <Loader2 className="animate-spin" size={18} /> : <><Save size={18} /> Confirm & Promote to Live</>}
+            {submitting ? (
+              <><Loader2 className="animate-spin" size={18} /> {migrating ? 'Moving file to live bucket...' : 'Saving...'}</>
+            ) : (
+              <><Save size={18} /> Confirm & Promote to Live</>
+            )}
           </button>
         </form>
       </div>

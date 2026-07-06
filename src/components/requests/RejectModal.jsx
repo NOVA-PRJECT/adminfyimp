@@ -1,20 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { AlertTriangle, Loader2, X } from 'lucide-react';
-
-// Best-effort: turns a Supabase public URL into a storage object path so we can
-// delete the underlying file when rejecting an upload. If parsing fails, we just
-// skip the storage cleanup and still reject the request.
-const parseStoragePath = (publicUrl, bucket) => {
-  try {
-    const marker = `/object/public/${bucket}/`;
-    const idx = publicUrl.indexOf(marker);
-    if (idx === -1) return null;
-    return decodeURIComponent(publicUrl.slice(idx + marker.length));
-  } catch {
-    return null;
-  }
-};
+import { parseStoragePath } from '../../lib/storagePaths';
 
 const RejectModal = ({ request, isOpen, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
